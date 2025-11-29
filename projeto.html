@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Projeto Vidraçaria - Prévia Cliente</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f1f5f9;
+      margin: 0;
+      padding: 32px 0;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      background: #ffffff;
+      border-radius: 18px;
+      padding: 24px 32px 32px;
+      box-shadow: 0 20px 50px rgba(15, 23, 42, 0.18);
+      border: 1px solid #e2e8f0;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 18px;
+    }
+
+    .logo {
+      font-weight: 800;
+      font-size: 20px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: #111827;
+    }
+
+    .empresa {
+      font-size: 11px;
+      color: #6b7280;
+      text-align: right;
+    }
+
+    h2 {
+      margin: 4px 0 0;
+      font-size: 18px;
+      text-align: center;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: #1f2937;
+    }
+
+    #info {
+      text-align: center;
+      font-size: 13px;
+      color: #4b5563;
+      margin-bottom: 12px;
+    }
+
+    #canvas-wrapper {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 12px;
+    }
+
+    #laudo {
+      margin-top: 12px;
+      padding: 10px 12px;
+      background: #f9fafb;
+      border-radius: 10px;
+      border: 1px dashed #cbd5e1;
+      font-size: 13px;
+      color: #374151;
+      line-height: 1.6;
+      white-space: pre-wrap;
+    }
+
+    #alertas {
+      margin-top: 10px;
+      font-size: 13px;
+      color: #b91c1c;
+    }
+
+    .alerta-item::before {
+      content: "⚠ ";
+    }
+
+    #erro {
+      margin-top: 10px;
+      text-align: center;
+      font-size: 13px;
+      color: #b91c1c;
+    }
+
+    .footer {
+      margin-top: 16px;
+      font-size: 11px;
+      color: #9ca3af;
+      text-align: right;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="logo">PROJETO VIDRAÇARIA</div>
+    <div class="empresa">
+      Cliente: <span id="clienteNome">-</span><br/>
+      Cidade: <span id="clienteCidade">-</span><br/>
+      Ambiente: <span id="ambiente">-</span>
+    </div>
+  </div>
+
+  <h2>Box de Banheiro</h2>
+  <div id="info">Carregando projeto a partir da IA...</div>
+
+  <div id="canvas-wrapper">
+    <!-- SVG será injetado aqui -->
+    <svg id="projeto-svg" width="900" height="320"></svg>
+  </div>
+
+  <div id="laudo"></div>
+  <div id="alertas"></div>
+  <div id="erro"></div>
+
+  <div class="footer">
+    Pré-visualização ilustrativa de projeto – medidas aproximadas geradas pela IA.
+  </div>
+</div>
+
+<script>
+  // Função utilitária pra desenhar uma seta dupla
+  function desenharSetaPorta(svg, x, y, largura) {
+    const seta = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    seta.setAttribute("x", x + largura / 2);
+    seta.setAttribute("y", y);
+    seta.setAttribute("text-anchor", "middle");
+    seta.setAttribute("fill", "#16a34a");
+    seta.setAttribute("font-size", "24");
+    seta.setAttribute("font-weight", "bold");
+    seta.textContent = "⇄";
+    svg.appendChild(seta);
+  }
+
+  async function carregarProjeto() {
+    const info = document.getElementById("info");
+    const svg = document.getElementById("projeto-svg");
+    const laudo = document.getElementById("laudo");
+    const alertasDiv = document.getElementById("alertas");
+    const erro = document.getElementById("erro");
+
+    const clienteNome = document.getElementById("clienteNome");
+    const clienteCidade = document.getElementById("clienteCidade");
+    const ambienteSpan = document.getElementById("ambiente");
+
+    // limpa
+    svg.innerHTML = "";
+    laudo.textContent = "";
+    alertasDiv.innerHTML = "";
+    erro.textContent = "";
+    info.textContent = "Carregando projeto a partir da IA...";
+
+    try {
+      const resp = await fetch("http://127.0.0.1:8000/ia/gerar-projeto", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+          tipoServico: "Box de banheiro",
+          ambiente: "Banheiro suíte",
+          largura: 1.60,
+          altura: 2.10,
+          temCanto: false,
+          numPortas: 2,
+          numFixos: 2,
+          tipoVidro: "temperado incolor",
+          espessura: 8,
+          perfil: "preto fosco",
+          desnivel: 0.8,
+          observacoes: "Piso com leve caimento para o ralo.",
+          cliente: {nome: "João da Silva", cidade: "Recife"}
+        })
+      });
+
+      if (!resp.ok) {
+        throw new Error("HTTP " + resp.status);
+      }
+
+      const projeto = await resp.json();
+
+      // cabeçalho com info do cliente
+      clienteNome.textContent = projeto.cliente?.nome || "João da Silva";
+      clienteCidade.textContent = projeto.cliente?.cidade || "Recife";
+      ambienteSpan.textContent = "Banheiro suíte";
+
+      info.textContent =
+        `Modelo: ${projeto.descricaoModelo} • Vidro: ${projeto.vidro} • Perfil: ${projeto.perfil}`;
+
+      const larguraVaoM = projeto.pecas
+        .map(p => p.largura)
+        .reduce((a, b) => a + b, 0);
+
+      // Medidas do desenho
+      const margin = 40;
+      const larguraUtil = 900 - margin * 2;
+      const alturaUtil = 220;
+
+      const vaoTop = 70;
+      const vaoBottom = vaoTop + alturaUtil;
+
+      // Moldura externa (perfil)
+      const moldura = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      moldura.setAttribute("x", margin);
+      moldura.setAttribute("y", vaoTop);
+      moldura.setAttribute("width", larguraUtil);
+      moldura.setAttribute("height", alturaUtil);
+      moldura.setAttribute("fill", "#e5e7eb");
+      moldura.setAttribute("stroke", "#111827");
+      moldura.setAttribute("stroke-width", "4");
+      svg.appendChild(moldura);
+
+      // Trilhos superior e inferior
+      const trilhoSup = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      trilhoSup.setAttribute("x", margin + 6);
+      trilhoSup.setAttribute("y", vaoTop + 6);
+      trilhoSup.setAttribute("width", larguraUtil - 12);
+      trilhoSup.setAttribute("height", 10);
+      trilhoSup.setAttribute("fill", "#111827");
+      svg.appendChild(trilhoSup);
+
+      const trilhoInf = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      trilhoInf.setAttribute("x", margin + 6);
+      trilhoInf.setAttribute("y", vaoBottom - 16);
+      trilhoInf.setAttribute("width", larguraUtil - 12);
+      trilhoInf.setAttribute("height", 10);
+      trilhoInf.setAttribute("fill", "#111827");
+      svg.appendChild(trilhoInf);
+
+      // Desenhar vidros
+      let xAtual = margin + 10;
+      const alturaVidro = alturaUtil - 40;
+      const yVidro = vaoTop + 20;
+
+      projeto.pecas.forEach((p) => {
+        const proporcao = p.largura / larguraVaoM;
+        const larguraPx = proporcao * (larguraUtil - 20);
+
+        // Vidro
+        const vidro = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        vidro.setAttribute("x", xAtual);
+        vidro.setAttribute("y", yVidro);
+        vidro.setAttribute("width", larguraPx);
+        vidro.setAttribute("height", alturaVidro);
+        vidro.setAttribute("rx", "4");
+        vidro.setAttribute("ry", "4");
+
+        if (p.tipo === "fixo") {
+          vidro.setAttribute("fill", "url(#hatchFixo)");
+        } else if (p.tipo === "porta") {
+          vidro.setAttribute("fill", "url(#gradPorta)");
+        } else {
+          vidro.setAttribute("fill", "url(#gradPainel)");
+        }
+
+        vidro.setAttribute("stroke", "#4b5563");
+        vidro.setAttribute("stroke-width", "1.5");
+        svg.appendChild(vidro);
+
+        // Código + tipo
+        const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        label.setAttribute("x", xAtual + larguraPx / 2);
+        label.setAttribute("y", yVidro + alturaVidro / 2 - 6);
+        label.setAttribute("text-anchor", "middle");
+        label.setAttribute("fill", "#111827");
+        label.setAttribute("font-size", "12");
+        label.setAttribute("font-weight", "600");
+        label.textContent = `${p.codigo} • ${p.tipo.toUpperCase()}`;
+        svg.appendChild(label);
+
+        // Medida
+        const medida = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        medida.setAttribute("x", xAtual + larguraPx / 2);
+        medida.setAttribute("y", yVidro + alturaVidro / 2 + 12);
+        medida.setAttribute("text-anchor", "middle");
+        medida.setAttribute("fill", "#374151");
+        medida.setAttribute("font-size", "11");
+        medida.textContent = `${p.largura.toFixed(2)} m`;
+        svg.appendChild(medida);
+
+        // Setinha em portas
+        if (p.tipo === "porta") {
+          desenharSetaPorta(svg, xAtual, yVidro + 24, larguraPx);
+        }
+
+        xAtual += larguraPx + 2;
+      });
+
+      // Linha de cota em cima (largura total)
+      const linhaCota = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      linhaCota.setAttribute("x1", margin);
+      linhaCota.setAttribute("y1", vaoTop - 20);
+      linhaCota.setAttribute("x2", margin + larguraUtil);
+      linhaCota.setAttribute("y2", vaoTop - 20);
+      linhaCota.setAttribute("stroke", "#111827");
+      linhaCota.setAttribute("stroke-width", "1");
+      svg.appendChild(linhaCota);
+
+      const textoCota = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      textoCota.setAttribute("x", margin + larguraUtil / 2);
+      textoCota.setAttribute("y", vaoTop - 24);
+      textoCota.setAttribute("text-anchor", "middle");
+      textoCota.setAttribute("fill", "#111827");
+      textoCota.setAttribute("font-size", "12");
+      textoCota.textContent = `Largura total ≈ ${larguraVaoM.toFixed(2)} m`;
+      svg.appendChild(textoCota);
+
+      // Gradientes / padrões
+      const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+
+      const gradPorta = document.createElementNS("http://www.w3.org/2000/svg", "linearGradient");
+      gradPorta.setAttribute("id", "gradPorta");
+      gradPorta.setAttribute("x1", "0%");
+      gradPorta.setAttribute("y1", "0%");
+      gradPorta.setAttribute("x2", "100%");
+      gradPorta.setAttribute("y2", "100%");
+      let stop1 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
+      stop1.setAttribute("offset", "0%");
+      stop1.setAttribute("stop-color", "#e0f2fe");
+      gradPorta.appendChild(stop1);
+      let stop2 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
+      stop2.setAttribute("offset", "100%");
+      stop2.setAttribute("stop-color", "#bae6fd");
+      gradPorta.appendChild(stop2);
+      defs.appendChild(gradPorta);
+
+      const gradPainel = document.createElementNS("http://www.w3.org/2000/svg", "linearGradient");
+      gradPainel.setAttribute("id", "gradPainel");
+      gradPainel.setAttribute("x1", "0%");
+      gradPainel.setAttribute("y1", "0%");
+      gradPainel.setAttribute("x2", "100%");
+      gradPainel.setAttribute("y2", "100%");
+      stop1 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
+      stop1.setAttribute("offset", "0%");
+      stop1.setAttribute("stop-color", "#fee2e2");
+      gradPainel.appendChild(stop1);
+      stop2 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
+      stop2.setAttribute("offset", "100%");
+      stop2.setAttribute("stop-color", "#fecaca");
+      gradPainel.appendChild(stop2);
+      defs.appendChild(gradPainel);
+
+      const patternFixo = document.createElementNS("http://www.w3.org/2000/svg", "pattern");
+      patternFixo.setAttribute("id", "hatchFixo");
+      patternFixo.setAttribute("patternUnits", "userSpaceOnUse");
+      patternFixo.setAttribute("width", "6");
+      patternFixo.setAttribute("height", "6");
+      const pfRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      pfRect.setAttribute("width", "6");
+      pfRect.setAttribute("height", "6");
+      pfRect.setAttribute("fill", "#dbeafe");
+      patternFixo.appendChild(pfRect);
+      const pfLine = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      pfLine.setAttribute("d", "M0,6 L6,0");
+      pfLine.setAttribute("stroke", "#93c5fd");
+      pfLine.setAttribute("stroke-width", "1");
+      patternFixo.appendChild(pfLine);
+      defs.appendChild(patternFixo);
+
+      svg.insertBefore(defs, svg.firstChild);
+
+      // Laudo e alertas
+      laudo.textContent = projeto.laudoTecnico;
+
+      if (projeto.alertas && projeto.alertas.length > 0) {
+        alertasDiv.innerHTML = projeto.alertas
+          .map(a => `<div class="alerta-item">${a}</div>`)
+          .join("");
+      }
+    } catch (e) {
+      console.error(e);
+      info.textContent = "Não foi possível carregar o projeto.";
+      erro.textContent = "Erro ao comunicar com a API. Verifique se o FastAPI está rodando em 127.0.0.1:8000.";
+    }
+  }
+
+  carregarProjeto();
+</script>
+</body>
+</html>
+
