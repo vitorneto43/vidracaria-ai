@@ -9,8 +9,6 @@ app = FastAPI(
 )
 
 # ───────────────────────── CORS ─────────────────────────
-# Origens que podem chamar a API (navegador).
-# Mantive as tuas e adicionei "*" pra evitar dor de cabeça enquanto desenvolve.
 origins = [
     "http://127.0.0.1:63342",
     "http://localhost:63342",
@@ -18,7 +16,7 @@ origins = [
     "http://localhost:8000",
     "http://127.0.0.1:5500",
     "http://localhost:5500",
-    "*",  # 🔓 libera geral (depois, se quiser, pode restringir)
+    "*",
 ]
 
 app.add_middleware(
@@ -91,51 +89,83 @@ def escolher_template(visita: VisitaTecnica) -> str:
     return "generico"
 
 
+# 🔥 NOVO: cálculo “perfeito” do BOX-11 (duas portas + dois fixos)
+def gerar_pecas_box_11(visita: VisitaTecnica) -> List[Peca]:
+    """
+    Cálculo determinístico estilo Casas Mansur.
+    Ajuste as folgas/sobreposição aqui de acordo com o seu padrão real.
+    """
+    folga_lateral = 0.03            # 3 cm TOTAL do vão
+    folga_altura = 0.05             # 5 cm TOTAL na altura
+    sobreposicao_folhas = 0.05      # 5 cm de sobreposição da porta no fixo
+
+    largura_vao = visita.largura
+    altura_vao = visita.altura
+
+    # Altura útil do vidro (mesma para portas e fixos)
+    altura_peca = round(altura_vao - folga_altura, 3)
+
+    # Larguras:
+    # (vão - folga total - sobreposição) dividido em 2 blocos: um fixo + uma porta
+    largura_fixo = round((largura_vao - folga_lateral - sobreposicao_folhas) / 2, 3)
+    largura_porta = round(largura_fixo + sobreposicao_folhas, 3)
+
+    pecas: List[Peca] = []
+
+    # Fixo esquerdo
+    pecas.append(Peca(
+        codigo="F01",
+        tipo="fixo",
+        posicao="fixo esquerdo",
+        largura=largura_fixo,
+        altura=altura_peca,
+    ))
+
+    # Porta 1
+    pecas.append(Peca(
+        codigo="P01",
+        tipo="porta",
+        posicao="porta correr 1",
+        largura=largura_porta,
+        altura=altura_peca,
+    ))
+
+    # Porta 2
+    pecas.append(Peca(
+        codigo="P02",
+        tipo="porta",
+        posicao="porta correr 2",
+        largura=largura_porta,
+        altura=altura_peca,
+    ))
+
+    # Fixo direito
+    pecas.append(Peca(
+        codigo="F02",
+        tipo="fixo",
+        posicao="fixo direito",
+        largura=largura_fixo,
+        altura=altura_peca,
+    ))
+
+    return pecas
+
+
 def gerar_pecas_basicas(visita: VisitaTecnica, template_id: str) -> List[Peca]:
     pecas: List[Peca] = []
 
+    # 🔥 AGORA: quando for BOX-11, usamos o cálculo “perfeito”
     if template_id == "box_11":
-        # Exemplo: 25% vão fixo esquerdo, 25% porta 1, 25% porta 2, 25% fixo direito
-        largura_fixo = visita.largura * 0.25
-        largura_porta = visita.largura * 0.25
+        return gerar_pecas_box_11(visita)
 
-        pecas.append(Peca(
-            codigo="F01",
-            tipo="fixo",
-            posicao="fixo esquerdo",
-            largura=largura_fixo,
-            altura=visita.altura,
-        ))
-        pecas.append(Peca(
-            codigo="P01",
-            tipo="porta",
-            posicao="porta correr 1",
-            largura=largura_porta,
-            altura=visita.altura,
-        ))
-        pecas.append(Peca(
-            codigo="P02",
-            tipo="porta",
-            posicao="porta correr 2",
-            largura=largura_porta,
-            altura=visita.altura,
-        ))
-        pecas.append(Peca(
-            codigo="F02",
-            tipo="fixo",
-            posicao="fixo direito",
-            largura=largura_fixo,
-            altura=visita.altura,
-        ))
-    else:
-        # Modelo genérico / painel único
-        pecas.append(Peca(
-            codigo="P01",
-            tipo="painel",
-            posicao="principal",
-            largura=visita.largura,
-            altura=visita.altura,
-        ))
+    # Demais modelos (genérico por enquanto)
+    pecas.append(Peca(
+        codigo="P01",
+        tipo="painel",
+        posicao="principal",
+        largura=visita.largura,
+        altura=visita.altura,
+    ))
 
     return pecas
 
@@ -169,7 +199,7 @@ def gerar_laudo(visita: VisitaTecnica, template_id: str) -> tuple[str, List[str]
     if template_id == "box_11":
         linhas.append(
             "O modelo definido foi BOX-11 (duas portas de correr com dois fixos), "
-            "proporcionando melhor circulação e vedação."
+            "com distribuição de peças calculada para melhor circulação e vedação."
         )
 
     laudo = " ".join(linhas)
@@ -197,4 +227,3 @@ def gerar_projeto(visita: VisitaTecnica) -> ProjetoResposta:
         laudoTecnico=laudo,
         alertas=alertas,
     )
-
