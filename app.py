@@ -3,16 +3,22 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Literal, Optional
 
-
-app = FastAPI(title="IA Projetos Vidraçaria")
+app = FastAPI(
+    title="IA Projetos Vidraçaria",
+    version="0.1.0",
+)
 
 # ───────────────────────── CORS ─────────────────────────
-# Ajuste os origins conforme onde o front vai rodar
+# Origens que podem chamar a API (navegador).
+# Mantive as tuas e adicionei "*" pra evitar dor de cabeça enquanto desenvolve.
 origins = [
     "http://127.0.0.1:63342",
     "http://localhost:63342",
     "http://127.0.0.1:8000",
     "http://localhost:8000",
+    "http://127.0.0.1:5500",
+    "http://localhost:5500",
+    "*",  # 🔓 libera geral (depois, se quiser, pode restringir)
 ]
 
 app.add_middleware(
@@ -22,7 +28,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 
 # ────────────────────── MODELOS Pydantic ──────────────────────
 class Cliente(BaseModel):
@@ -178,7 +183,7 @@ def raiz():
 
 
 @app.post("/ia/gerar-projeto", response_model=ProjetoResposta)
-def gerar_projeto(visita: VisitaTecnica):
+def gerar_projeto(visita: VisitaTecnica) -> ProjetoResposta:
     template_id = escolher_template(visita)
     pecas = gerar_pecas_basicas(visita, template_id)
     laudo, alertas = gerar_laudo(visita, template_id)
