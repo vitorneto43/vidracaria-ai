@@ -43,8 +43,8 @@
     }
 
     h2 {
-      margin: 4px 0 0;
-      font-size: 18px;
+      margin: 4px 0 12px;
+      font-size: 20px;
       text-align: center;
       text-transform: uppercase;
       letter-spacing: 0.14em;
@@ -82,23 +82,34 @@
       color: #b91c1c;
     }
 
-    .alerta-item::before {
-      content: "⚠ ";
-    }
-
-    #erro {
-      margin-top: 10px;
-      text-align: center;
-      font-size: 13px;
-      color: #b91c1c;
-    }
-
     .footer {
       margin-top: 16px;
       font-size: 11px;
       color: #9ca3af;
       text-align: right;
     }
+
+    /* Botão premium */
+    .btn-premium {
+      background: linear-gradient(135deg, #111827, #4b5563);
+      color: #fff;
+      padding: 12px 28px;
+      border: none;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      display: block;
+      margin: 0 auto 18px;
+      box-shadow: 0 8px 18px rgba(0,0,0,0.25);
+      transition: .25s;
+    }
+
+    .btn-premium:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 14px 30px rgba(0,0,0,0.25);
+    }
+
   </style>
 </head>
 <body>
@@ -113,10 +124,13 @@
   </div>
 
   <h2>Box de Banheiro</h2>
+
+  <!-- BOTÃO PREMIUM PRA TESTAR -->
+  <button class="btn-premium" onclick="gerarProjeto()">🔧 Gerar Projeto</button>
+
   <div id="info">Carregando projeto a partir da IA...</div>
 
   <div id="canvas-wrapper">
-    <!-- SVG será injetado aqui -->
     <svg id="projeto-svg" width="900" height="320"></svg>
   </div>
 
@@ -130,7 +144,15 @@
 </div>
 
 <script>
-  // Função utilitária pra desenhar uma seta dupla
+  const API_URL = "https://vidracaria-ai.onrender.com/ia/gerar-projeto";
+
+  // Função GLOBAL (botão e console)
+  async function gerarProjeto() {
+    console.log("📡 Chamando IA...");
+    await carregarProjeto();
+  }
+
+  // Utilitário: seta de porta
   function desenharSetaPorta(svg, x, y, largura) {
     const seta = document.createElementNS("http://www.w3.org/2000/svg", "text");
     seta.setAttribute("x", x + largura / 2);
@@ -154,7 +176,7 @@
     const clienteCidade = document.getElementById("clienteCidade");
     const ambienteSpan = document.getElementById("ambiente");
 
-    // limpa
+    // limpa tela
     svg.innerHTML = "";
     laudo.textContent = "";
     alertasDiv.innerHTML = "";
@@ -162,7 +184,7 @@
     info.textContent = "Carregando projeto a partir da IA...";
 
     try {
-      const resp = await fetch("http://127.0.0.1:8000/ia/gerar-projeto", {
+      const resp = await fetch(API_URL, {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({
@@ -187,8 +209,20 @@
       }
 
       const projeto = await resp.json();
+      console.log("🔍 PROJETO RECEBIDO:", projeto);
 
-      // cabeçalho com info do cliente
+      // segurança: se vier sem pecas, cria mock
+      if (!projeto.pecas || projeto.pecas.length === 0) {
+        console.warn("⚠ API retornou sem peças, usando exemplo mock.");
+        projeto.pecas = [
+          { codigo: "F01", tipo: "fixo",  posicao: "fixo esquerdo", largura: 0.40, altura: 2.10 },
+          { codigo: "P01", tipo: "porta", posicao: "porta 1",       largura: 0.40, altura: 2.10 },
+          { codigo: "P02", tipo: "porta", posicao: "porta 2",       largura: 0.40, altura: 2.10 },
+          { codigo: "F02", tipo: "fixo",  posicao: "fixo direito",  largura: 0.40, altura: 2.10 }
+        ];
+      }
+
+      // cabeçalho
       clienteNome.textContent = projeto.cliente?.nome || "João da Silva";
       clienteCidade.textContent = projeto.cliente?.cidade || "Recife";
       ambienteSpan.textContent = "Banheiro suíte";
@@ -196,125 +230,24 @@
       info.textContent =
         `Modelo: ${projeto.descricaoModelo} • Vidro: ${projeto.vidro} • Perfil: ${projeto.perfil}`;
 
+      // medidas gerais
       const larguraVaoM = projeto.pecas
         .map(p => p.largura)
         .reduce((a, b) => a + b, 0);
 
-      // Medidas do desenho
+      console.log("📏 Largura total calculada:", larguraVaoM, "m");
+      console.log("📦 Peças:", projeto.pecas);
+
       const margin = 40;
-      const larguraUtil = 900 - margin * 2;
+      const larguraSvg = 900;
+      const alturaSvg = 320;
+      const larguraUtil = larguraSvg - margin * 2;
       const alturaUtil = 220;
 
       const vaoTop = 70;
       const vaoBottom = vaoTop + alturaUtil;
 
-      // Moldura externa (perfil)
-      const moldura = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-      moldura.setAttribute("x", margin);
-      moldura.setAttribute("y", vaoTop);
-      moldura.setAttribute("width", larguraUtil);
-      moldura.setAttribute("height", alturaUtil);
-      moldura.setAttribute("fill", "#e5e7eb");
-      moldura.setAttribute("stroke", "#111827");
-      moldura.setAttribute("stroke-width", "4");
-      svg.appendChild(moldura);
-
-      // Trilhos superior e inferior
-      const trilhoSup = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-      trilhoSup.setAttribute("x", margin + 6);
-      trilhoSup.setAttribute("y", vaoTop + 6);
-      trilhoSup.setAttribute("width", larguraUtil - 12);
-      trilhoSup.setAttribute("height", 10);
-      trilhoSup.setAttribute("fill", "#111827");
-      svg.appendChild(trilhoSup);
-
-      const trilhoInf = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-      trilhoInf.setAttribute("x", margin + 6);
-      trilhoInf.setAttribute("y", vaoBottom - 16);
-      trilhoInf.setAttribute("width", larguraUtil - 12);
-      trilhoInf.setAttribute("height", 10);
-      trilhoInf.setAttribute("fill", "#111827");
-      svg.appendChild(trilhoInf);
-
-      // Desenhar vidros
-      let xAtual = margin + 10;
-      const alturaVidro = alturaUtil - 40;
-      const yVidro = vaoTop + 20;
-
-      projeto.pecas.forEach((p) => {
-        const proporcao = p.largura / larguraVaoM;
-        const larguraPx = proporcao * (larguraUtil - 20);
-
-        // Vidro
-        const vidro = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-        vidro.setAttribute("x", xAtual);
-        vidro.setAttribute("y", yVidro);
-        vidro.setAttribute("width", larguraPx);
-        vidro.setAttribute("height", alturaVidro);
-        vidro.setAttribute("rx", "4");
-        vidro.setAttribute("ry", "4");
-
-        if (p.tipo === "fixo") {
-          vidro.setAttribute("fill", "url(#hatchFixo)");
-        } else if (p.tipo === "porta") {
-          vidro.setAttribute("fill", "url(#gradPorta)");
-        } else {
-          vidro.setAttribute("fill", "url(#gradPainel)");
-        }
-
-        vidro.setAttribute("stroke", "#4b5563");
-        vidro.setAttribute("stroke-width", "1.5");
-        svg.appendChild(vidro);
-
-        // Código + tipo
-        const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
-        label.setAttribute("x", xAtual + larguraPx / 2);
-        label.setAttribute("y", yVidro + alturaVidro / 2 - 6);
-        label.setAttribute("text-anchor", "middle");
-        label.setAttribute("fill", "#111827");
-        label.setAttribute("font-size", "12");
-        label.setAttribute("font-weight", "600");
-        label.textContent = `${p.codigo} • ${p.tipo.toUpperCase()}`;
-        svg.appendChild(label);
-
-        // Medida
-        const medida = document.createElementNS("http://www.w3.org/2000/svg", "text");
-        medida.setAttribute("x", xAtual + larguraPx / 2);
-        medida.setAttribute("y", yVidro + alturaVidro / 2 + 12);
-        medida.setAttribute("text-anchor", "middle");
-        medida.setAttribute("fill", "#374151");
-        medida.setAttribute("font-size", "11");
-        medida.textContent = `${p.largura.toFixed(2)} m`;
-        svg.appendChild(medida);
-
-        // Setinha em portas
-        if (p.tipo === "porta") {
-          desenharSetaPorta(svg, xAtual, yVidro + 24, larguraPx);
-        }
-
-        xAtual += larguraPx + 2;
-      });
-
-      // Linha de cota em cima (largura total)
-      const linhaCota = document.createElementNS("http://www.w3.org/2000/svg", "line");
-      linhaCota.setAttribute("x1", margin);
-      linhaCota.setAttribute("y1", vaoTop - 20);
-      linhaCota.setAttribute("x2", margin + larguraUtil);
-      linhaCota.setAttribute("y2", vaoTop - 20);
-      linhaCota.setAttribute("stroke", "#111827");
-      linhaCota.setAttribute("stroke-width", "1");
-      svg.appendChild(linhaCota);
-
-      const textoCota = document.createElementNS("http://www.w3.org/2000/svg", "text");
-      textoCota.setAttribute("x", margin + larguraUtil / 2);
-      textoCota.setAttribute("y", vaoTop - 24);
-      textoCota.setAttribute("text-anchor", "middle");
-      textoCota.setAttribute("fill", "#111827");
-      textoCota.setAttribute("font-size", "12");
-      textoCota.textContent = `Largura total ≈ ${larguraVaoM.toFixed(2)} m`;
-      svg.appendChild(textoCota);
-
-      // Gradientes / padrões
+      // defs primeiro
       const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
 
       const gradPorta = document.createElementNS("http://www.w3.org/2000/svg", "linearGradient");
@@ -366,9 +299,113 @@
       patternFixo.appendChild(pfLine);
       defs.appendChild(patternFixo);
 
-      svg.insertBefore(defs, svg.firstChild);
+      svg.appendChild(defs);
 
-      // Laudo e alertas
+      // MOLDURA
+      const moldura = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      moldura.setAttribute("x", margin);
+      moldura.setAttribute("y", vaoTop);
+      moldura.setAttribute("width", larguraUtil);
+      moldura.setAttribute("height", alturaUtil);
+      moldura.setAttribute("fill", "#e5e7eb");
+      moldura.setAttribute("stroke", "#111827");
+      moldura.setAttribute("stroke-width", "4");
+      svg.appendChild(moldura);
+
+      // Trilhos
+      const trilhoSup = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      trilhoSup.setAttribute("x", margin + 6);
+      trilhoSup.setAttribute("y", vaoTop + 6);
+      trilhoSup.setAttribute("width", larguraUtil - 12);
+      trilhoSup.setAttribute("height", 10);
+      trilhoSup.setAttribute("fill", "#111827");
+      svg.appendChild(trilhoSup);
+
+      const trilhoInf = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      trilhoInf.setAttribute("x", margin + 6);
+      trilhoInf.setAttribute("y", vaoBottom - 16);
+      trilhoInf.setAttribute("width", larguraUtil - 12);
+      trilhoInf.setAttribute("height", 10);
+      trilhoInf.setAttribute("fill", "#111827");
+      svg.appendChild(trilhoInf);
+
+      // VIDROS
+      let xAtual = margin + 10;
+      const alturaVidro = alturaUtil - 40;
+      const yVidro = vaoTop + 20;
+
+      for (const p of projeto.pecas) {
+        const proporcao = p.largura / larguraVaoM;
+        const larguraPx = proporcao * (larguraUtil - 20);
+
+        const vidro = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        vidro.setAttribute("x", xAtual);
+        vidro.setAttribute("y", yVidro);
+        vidro.setAttribute("width", larguraPx);
+        vidro.setAttribute("height", alturaVidro);
+        vidro.setAttribute("rx", "4");
+        vidro.setAttribute("ry", "4");
+
+        if (p.tipo === "fixo") {
+          vidro.setAttribute("fill", "url(#hatchFixo)");
+        } else if (p.tipo === "porta") {
+          vidro.setAttribute("fill", "url(#gradPorta)");
+        } else {
+          vidro.setAttribute("fill", "url(#gradPainel)");
+        }
+
+        vidro.setAttribute("stroke", "#4b5563");
+        vidro.setAttribute("stroke-width", "1.5");
+        svg.appendChild(vidro);
+
+        // Label
+        const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        label.setAttribute("x", xAtual + larguraPx / 2);
+        label.setAttribute("y", yVidro + alturaVidro / 2 - 6);
+        label.setAttribute("text-anchor", "middle");
+        label.setAttribute("fill", "#111827");
+        label.setAttribute("font-size", "12");
+        label.setAttribute("font-weight", "600");
+        label.textContent = `${p.codigo} • ${p.tipo.toUpperCase()}`;
+        svg.appendChild(label);
+
+        // Medida
+        const medida = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        medida.setAttribute("x", xAtual + larguraPx / 2);
+        medida.setAttribute("y", yVidro + alturaVidro / 2 + 12);
+        medida.setAttribute("text-anchor", "middle");
+        medida.setAttribute("fill", "#374151");
+        medida.setAttribute("font-size", "11");
+        medida.textContent = `${p.largura.toFixed(2)} m`;
+        svg.appendChild(medida);
+
+        if (p.tipo === "porta") {
+          desenharSetaPorta(svg, xAtual, yVidro + 24, larguraPx);
+        }
+
+        xAtual += larguraPx + 2;
+      }
+
+      // Cota
+      const linhaCota = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      linhaCota.setAttribute("x1", margin);
+      linhaCota.setAttribute("y1", vaoTop - 20);
+      linhaCota.setAttribute("x2", margin + larguraUtil);
+      linhaCota.setAttribute("y2", vaoTop - 20);
+      linhaCota.setAttribute("stroke", "#111827");
+      linhaCota.setAttribute("stroke-width", "1");
+      svg.appendChild(linhaCota);
+
+      const textoCota = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      textoCota.setAttribute("x", margin + larguraUtil / 2);
+      textoCota.setAttribute("y", vaoTop - 24);
+      textoCota.setAttribute("text-anchor", "middle");
+      textoCota.setAttribute("fill", "#111827");
+      textoCota.setAttribute("font-size", "12");
+      textoCota.textContent = `Largura total ≈ ${larguraVaoM.toFixed(2)} m`;
+      svg.appendChild(textoCota);
+
+      // Laudo + alertas
       laudo.textContent = projeto.laudoTecnico;
 
       if (projeto.alertas && projeto.alertas.length > 0) {
@@ -376,15 +413,21 @@
           .map(a => `<div class="alerta-item">${a}</div>`)
           .join("");
       }
+
+      info.textContent = "Projeto gerado com sucesso.";
+
     } catch (e) {
       console.error(e);
       info.textContent = "Não foi possível carregar o projeto.";
-      erro.textContent = "Erro ao comunicar com a API. Verifique se o FastAPI está rodando em 127.0.0.1:8000.";
+      erro.textContent = "Erro ao comunicar com a API vidracaria-ai.onrender.com.";
     }
   }
 
+  // já carrega ao abrir
   carregarProjeto();
 </script>
+
 </body>
 </html>
+
 
